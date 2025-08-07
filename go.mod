@@ -1,4 +1,4 @@
-module github.com/brian.gavin/cutiter
+module github.com/brian-gavin/cutiter
 
 go 1.24
 
