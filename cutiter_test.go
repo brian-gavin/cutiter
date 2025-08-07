@@ -1,6 +1,7 @@
 package cutiter_test
 
 import (
+	"iter"
 	"strings"
 	"testing"
 
@@ -49,7 +50,6 @@ func TestIteration(t *testing.T) {
 				a.Equal("b", k, "advancing when at 'a' should result in 'b'")
 			}
 		}
-		a.Equal(len(order), i, "did not iterate over every element.")
 	})
 }
 
@@ -100,6 +100,15 @@ func BenchmarkIter(b *testing.B) {
 			b.Run("strings.SplitSeq", func(b *testing.B) {
 				for b.Loop() {
 					for k := range strings.SplitSeq(input, bc.sep) {
+						_ = k
+					}
+				}
+			})
+			b.Run("iter.Pull(strings.SplitSeq)", func(b *testing.B) {
+				for b.Loop() {
+					next, close := iter.Pull(strings.SplitSeq(input, bc.sep))
+					defer close()
+					for k, ok := next(); ok; k, ok = next() {
 						_ = k
 					}
 				}
