@@ -15,7 +15,7 @@ import (
 
 func main() {
 	var it cutiter.Iter
-	for k, ok := it.Start("hello.world", "."); ok; it.Advance() {
+	for k, ok := it.Start("hello.world", "."); ok; k, ok = it.Advance() {
 		fmt.Printf("%s\n", k)
 	}
 }
@@ -89,4 +89,4 @@ BenchmarkIter/superLong/strings.SplitSeq-16                          	     134	 
 BenchmarkIter/superLong/iter.Pull(strings.SplitSeq)-16               	     130	   9107284 ns/op	     448 B/op	      14 allocs/op
 ```
 
-^1: coming soon?
+[^1]: coming soon?
