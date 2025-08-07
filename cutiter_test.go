@@ -9,48 +9,61 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIteration(t *testing.T) {
-	t.Run("empty", func(t *testing.T) {
-		var it cutiter.Iter
-		for k, ok := it.Start("", "."); ok; k, ok = it.Advance() {
-			t.Fatalf("iteration should not occur: k: %q", k)
+type splittestcase struct {
+	name string
+	s    string
+	sep  string
+}
+
+func (tc *splittestcase) run(t *testing.T) {
+	var (
+		a       = assert.New(t)
+		split   = strings.Split(tc.s, tc.sep)
+		collect = make([]string, 0, len(split))
+		it      cutiter.Iter
+	)
+	for k, ok := it.Start(tc.s, tc.sep); ok; k, ok = it.Advance() {
+		collect = append(collect, k)
+	}
+	a.Equal(split, collect, "do not have the same result as strings.Split: %q", split)
+}
+
+func TestSplitEquivalence(t *testing.T) {
+	tcs := []splittestcase{
+		{"empty", "", "."},
+		{"emptySepNonemptyString", "a", ""},
+		{"singleLetter", "a", "."},
+		{"normal", "a.b.c.d.e.f.g", "."},
+		{"leadingSep", ".a", "."},
+		{"trailingSep", "a.", "."},
+		{"onlySep", ".", "."},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.run(t)
+		})
+	}
+}
+
+func TestAdvanceMidIteration(t *testing.T) {
+	var (
+		a     = assert.New(t)
+		sep   = "."
+		order = []string{"a", "b", "c", "d", "e", "f", "g"}
+		s     = "a.0.b.c.d.e.f.g"
+		i     int
+		it    cutiter.Iter
+	)
+	for k, ok := it.Start(s, sep); ok; k, ok = it.Advance() {
+		a.Equal(order[i], k, "expected %d element of order: %v", i, order)
+		i++
+		// skip "0"
+		if k == "a" {
+			k, ok = it.Advance()
+			a.True(ok, "advancement should be OK")
+			a.Equal("0", k, "advancing when at 'a' should result in 'b'")
 		}
-	})
-	t.Run("normal", func(t *testing.T) {
-		var (
-			a     = assert.New(t)
-			sep   = "."
-			order = []string{"a", "b", "c", "d", "e", "f", "g"}
-			s     = strings.Join(order, sep)
-			i     int
-			it    cutiter.Iter
-		)
-		for k, ok := it.Start(s, sep); ok; k, ok = it.Advance() {
-			a.Equal(order[i], k, "expected %d element of order: %v", i, order)
-			i++
-		}
-		a.Equal(len(order), i, "did not iterate over every element.")
-	})
-	t.Run("advanceMidIteration", func(t *testing.T) {
-		var (
-			a     = assert.New(t)
-			sep   = "."
-			order = []string{"a", "c", "d", "e", "f", "g"}
-			s     = "a.b.c.d.e.f.g"
-			i     int
-			it    cutiter.Iter
-		)
-		for k, ok := it.Start(s, sep); ok; k, ok = it.Advance() {
-			a.Equal(order[i], k, "expected %d element of order: %v", i, order)
-			i++
-			// skip "b"
-			if k == "a" {
-				k, ok = it.Advance()
-				a.True(ok, "advancement should be OK")
-				a.Equal("b", k, "advancing when at 'a' should result in 'b'")
-			}
-		}
-	})
+	}
 }
 
 type benchcase struct {
@@ -69,11 +82,13 @@ func (bc benchcase) genInput() string {
 }
 
 var benchCases = []benchcase{
-	{"empty", 0, 0, ""},
+	{"empty", 0, 0, "."},
 	{"short", 52, 1, "."},
 	{"long", 1024, 256, "."},
 	{"twoLongElements", 2, 1 << 16, "."},
 	{"superLong", 2048, 1 << 16, "........"},
+	{"shortEmptySeparator", 52, 1, ""},
+	{"emptyStringEmptySeparator", 0, 0, ""},
 }
 
 func BenchmarkIter(b *testing.B) {
@@ -107,10 +122,10 @@ func BenchmarkIter(b *testing.B) {
 			b.Run("iter.Pull(strings.SplitSeq)", func(b *testing.B) {
 				for b.Loop() {
 					next, close := iter.Pull(strings.SplitSeq(input, bc.sep))
-					defer close()
 					for k, ok := next(); ok; k, ok = next() {
 						_ = k
 					}
+					close()
 				}
 			})
 		})
@@ -120,18 +135,13 @@ func BenchmarkIter(b *testing.B) {
 // TestBenchmarkCases tests the benchmark cases.
 func TestBenchmarkCases(t *testing.T) {
 	for _, bc := range benchCases {
-		t.Run(bc.name, func(t *testing.T) {
-			var (
-				a     = assert.New(t)
-				input = bc.genInput()
-				it    cutiter.Iter
-				i     int
-			)
-			for k, ok := it.Start(input, bc.sep); ok; k, ok = it.Advance() {
-				i++
-				a.Len(k, bc.elementLen)
-			}
-			a.Equal(bc.elements, i, "loop did not iterate over every element")
+		tc := splittestcase{
+			name: bc.name,
+			s:    bc.genInput(),
+			sep:  bc.sep,
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			tc.run(t)
 		})
 	}
 }

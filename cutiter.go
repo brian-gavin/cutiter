@@ -37,7 +37,9 @@
 //	hello
 package cutiter
 
-import "strings"
+import (
+	"strings"
+)
 
 // Iter iterates over an input string using strings.Cut to avoid allocation.
 // It should be used with a for loop as:
@@ -51,30 +53,43 @@ import "strings"
 // The subsequent call to Advance() will return ("", false).
 // If s is empty, then Start() will return ("", false).
 type Iter struct {
-	sep  string
-	rest string
+	fallback  *fallbackEmpty
+	sep       string
+	rest      string
+	lastFound bool
 }
 
 // Start initializes the iteration, and returns the first key.
 // If s does not contain sep, it will return (s, true).
 // The subsequent call to Advance() will return ("", false).
 func (it *Iter) Start(s, sep string) (string, bool) {
+	// empty sep: not supported by Cut, so we need to resort to the fallback
+	if len(sep) == 0 {
+		it.fallback = newFallbackEmpty(s)
+	}
 	it.sep = sep
-	return it.next(s)
+	it.rest = s         // begin with rest as the input, for next()
+	it.lastFound = true // first call to next should always return ok == true
+	return it.next()
 }
 
 // Advance advances the iteration to the next key.
 // When iteration is completed, it returns ("", false)
 func (it *Iter) Advance() (string, bool) {
-	return it.next(it.rest)
+	return it.next()
 }
 
 // next is the internal method used by iter.Start and iter.Advance. it will cut s,
 // and return the "before", storing the "after" for the subsequent call.
 // if path does not contain "." and is non-empty, it will return (path, true), storing "".
 // if path is empty, it will return ("", false). this means the end of iteration.
-func (it *Iter) next(s string) (key string, ok bool) {
-	key, it.rest, _ = strings.Cut(s, it.sep)
-	ok = key != ""
-	return key, ok
+func (it *Iter) next() (key string, ok bool) {
+	if it.fallback != nil {
+		return it.fallback.next()
+	}
+	var found bool
+	key, it.rest, found = strings.Cut(it.rest, it.sep)
+	ok = found || it.lastFound
+	it.lastFound = found
+	return
 }
