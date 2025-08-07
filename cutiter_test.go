@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/brian.gavin/cutiter"
+	"github.com/brian-gavin/cutiter"
 	"github.com/stretchr/testify/assert"
 )
 

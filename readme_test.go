@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/brian.gavin/cutiter"
+	"github.com/brian-gavin/cutiter"
 	"github.com/stretchr/testify/assert"
 )
 
